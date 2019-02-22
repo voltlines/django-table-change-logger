@@ -1,0 +1,26 @@
+import os
+import setuptools
+
+# allow setup.py to be run from any path
+os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
+
+setuptools.setup(
+    name="tablechangelogger",
+    version="0.0.1",
+    author="Volt Lines",
+    author_email="can@voltlines.com",
+    description="""A python package which logs each change made to a django
+                model instance""",
+    url="https://github.com/voltlines/django-table-change-logger",
+    packages=setuptools.find_packages(),
+    license='MIT',
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 2.7"
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    install_requires=[
+        'Django>=1.11'
+    ]
+)
