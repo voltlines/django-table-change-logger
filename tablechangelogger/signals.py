@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 PRE_SAVE_FUNCTION_TEMPLATE = """
 from tablechangelogger.log_table_change import log_table_change
 
-@log_table_change({fields})
+@log_table_change
 def table_change_log_{model_name}(sender, instance, **kwargs):
     pass
 """  # noqa

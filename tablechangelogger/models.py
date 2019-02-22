@@ -18,4 +18,4 @@ class TableChangesLog(models.Model):
         index_together = (('table_name', 'instance_id'))
 
     def __str__(self):
-        return '{}_{}'.format(self.app_label, self.table_name)
+        return '{}_{}'.format(self.table_name, self.instance_id)
