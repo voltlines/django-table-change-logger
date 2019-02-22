@@ -1,6 +1,6 @@
 import logging
 
-from tablechangelogger.config import TABLE_CHANGE_LOG_CONFIG
+from tablechangelogger.config import LOGGABLE_APPS
 from tablechangelogger.utils import get_app_label, get_model, get_model_name
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ def is_loggable(instance):
     is_loggable = False
     app_label = get_app_label(instance)
     table_name = get_model_name(instance)
-    config = TABLE_CHANGE_LOG_CONFIG.get(app_label)
+    config = LOGGABLE_APPS.get(app_label)
 
     if config is not None:
         for model_path in config.keys():
@@ -74,7 +74,7 @@ def get_table_change_log_config(instance):
 
     app_label = get_app_label(instance)
     table_name = get_model_name(instance)
-    config = TABLE_CHANGE_LOG_CONFIG.get(app_label)
+    config = LOGGABLE_APPS.get(app_label)
     table_path = list(filter(lambda key: table_name in key, config.keys()))
 
     if table_path:

@@ -12,16 +12,19 @@ table change logging. If not provided, the default value is True.
 
 ```python
 TABLE_CHANGE_LOG_CONFIG={
-    'drivers': {
-        'yourapp.models.Drivers': {
-            'fields': ['driver_id', 'driver_name']
+    'LOGGABLE_APPS': {
+        'drivers': {
+            'yourapp.models.Drivers': {
+                'fields': ['driver_id', 'driver_name']
+            }
+        },
+        'cars': {
+            'yourapp.models.Car': {
+                'fields': ['license_plate', 'car_model']
+            }
         }
     },
-    'cars': {
-        'yourapp.models.Car': {
-            'fields': ['license_plate', 'car_model']
-        }
-    }
+    'TABLE_CHANGE_LOG_ENABLED': True
 }
 
 ```
