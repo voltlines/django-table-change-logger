@@ -8,7 +8,7 @@ setuptools.setup(
     name="tablechangelogger",
     version="0.0.1",
     author="Volt Lines",
-    author_email="can@voltlines.com",
+    author_email="tech@voltlines.com",
     description="""A python package which logs each change made to a django
                 model instance""",
     url="https://github.com/voltlines/django-table-change-logger",

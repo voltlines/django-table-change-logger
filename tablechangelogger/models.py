@@ -1,5 +1,10 @@
 from django.contrib.gis.db import models
 
+from tablechangelogger.config import TABLE_CHANGE_LOG_ENABLED
+
+if TABLE_CHANGE_LOG_ENABLED:
+    from tablechangelogger.signals import *  # noqa
+
 
 class TableChangesLog(models.Model):
     app_label = models.CharField(max_length=255)

@@ -1,6 +1,5 @@
 import logging
 
-from tablechangelogger.models import TableChangesLog
 from tablechangelogger.config import TABLE_CHANGE_LOG_CONFIG
 from tablechangelogger.utils import get_app_label, get_model_name
 
@@ -59,6 +58,8 @@ def create_table_change_log_record(app_label, table_name, instance_id,
     """
         Creates TableChangeLog record and returns the created instance
     """
+    from tablechangelogger.models import TableChangesLog
+
     table_change_log = TableChangesLog.objects.create(
         app_label=app_label, table_name=table_name,
         instance_id=instance_id, field_name=field_name,
@@ -72,6 +73,8 @@ def get_latest_table_change_log(table_name, instance_id):
         Returns most recent TableChangeLog record from specified table and
         instance
     """
+
+    from tablechangelogger.models import TableChangesLog
 
     return TableChangesLog.objects.filter(
         table_name=table_name, instance_id=instance_id
