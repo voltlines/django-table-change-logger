@@ -2,6 +2,7 @@ import logging
 
 from tablechangelogger.config import LOGGABLE_APPS
 from tablechangelogger.utils import get_app_label, get_model, get_model_name
+from tablechangelogger.datastructures import Logged
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ def get_table_change_log_config(instance):
 
 
 def create_table_change_log_record(app_label, table_name, instance_id,
-                                   field_name, field_value):
+                                   field_name, log):
     """
         Creates TableChangeLog record and returns the created instance
     """
@@ -95,7 +96,7 @@ def create_table_change_log_record(app_label, table_name, instance_id,
     table_change_log = TableChangesLog.objects.create(
         app_label=app_label, table_name=table_name,
         instance_id=instance_id, field_name=field_name,
-        field_value=field_value
+        log=log
     )
     return table_change_log
 
@@ -127,7 +128,6 @@ def log_table_change(func):
             # get the instance from the pre_save method
             # check if the instance is loggable
             loggable = is_loggable(instance)
-
             if loggable:
                 app_label = get_app_label(instance)
                 table_name = get_model_name(instance)
@@ -142,15 +142,16 @@ def log_table_change(func):
                 # for each loggable field, get its value and save to the
                 # respective table
                 for field_name in loggable_fields:
-                    field_value = getattr(instance, field_name, None)
-                    if field_value:
-                        create_table_change_log_record(
-                            app_label,
-                            table_name,
-                            instance_id,
-                            field_name,
-                            field_value
-                        )
+                    old_value = getattr(obj, field_name, None)
+                    new_value = getattr(instance, field_name, None)
+                    log = Logged(old_value=old_value, new_value=new_value)
+                    create_table_change_log_record(
+                        app_label,
+                        table_name,
+                        instance_id,
+                        field_name,
+                        log
+                    )
                 return result
         except Exception as e:
             logger.exception(e)
