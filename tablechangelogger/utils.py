@@ -1,6 +1,7 @@
 import json
 import pickle
 
+
 def get_model(instance):
     """Returns the model object from instance"""
     return instance._meta.model
@@ -22,6 +23,7 @@ def serialize_field(field):
     byte_field = list(pickled_field)
     dumped_field = json.dumps(byte_field)
     return dumped_field
+
 
 def deserialize_field(field):
     """Deserializes a pickled field"""

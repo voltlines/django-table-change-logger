@@ -1,8 +1,10 @@
 import logging
+from hashlib import md5
 
 from tablechangelogger.config import LOGGABLE_APPS
-from tablechangelogger.utils import get_app_label, get_model, get_model_name
-from tablechangelogger.datastructures import Logged
+from tablechangelogger.utils import (
+    get_app_label, get_model, get_model_name, serialize_field)
+from tablechangelogger.datastructures import Logged, Change
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,9 @@ def is_loggable(instance):
     if config is not None:
         for model_path in config.keys():
             is_loggable = table_name in model_path
+            # if instance is newly created, we cannot log it since
+            # there is no change
+            is_loggable &= instance.id is not None
             if is_loggable:
                 break
 
@@ -66,7 +71,6 @@ def get_loggable_fields(differing_fields, config):
     fields = config.get('fields')
     loggable_fields = list(filter(lambda field_name: field_name in fields,
                                   differing_fields))
-
     return loggable_fields
 
 
@@ -86,19 +90,109 @@ def get_table_change_log_config(instance):
     return table_config
 
 
-def create_table_change_log_record(app_label, table_name, instance_id,
-                                   field_name, log):
+def generate_tcl_unique_id(app_label, table_name, instance_id, field_names,
+                           changes):
     """
-        Creates TableChangeLog record and returns the created instance
+    Generates a unique id from specific log attributes.
+    """
+
+    changes = serialize_field(changes)
+    key = '{}{}{}{}{}'.format(app_label, table_name, instance_id, field_names,
+                              changes)
+
+    return md5(str(key).encode()).hexdigest()
+
+
+def generate_tcl_property_unique_ids_dict(loggable_properties, changes):
+    """
+    Gets a loggable propertes list and changes mapping,
+    generates a mapping of property fields and values and generates a hash
+    for each of these properties.
+    """
+
+    unique_id_dict = {}
+    prop_changes = {prop: serialize_field(value.new_value)
+                    for prop, value in changes.items()
+                    if prop in loggable_properties}
+    for key, value in prop_changes.items():
+        unique_id_dict[key] = md5(str(value).encode()).hexdigest()
+
+    return unique_id_dict
+
+
+def create_table_change_log_record(app_label, table_name, instance_id,
+                                   field_names, log, loggable_properties=None):
+    """
+    Creates TableChangeLog record and returns the created instance
     """
     from tablechangelogger.models import TableChangesLog
 
-    table_change_log = TableChangesLog.objects.create(
-        app_label=app_label, table_name=table_name,
-        instance_id=instance_id, field_name=field_name,
-        log=log
+    unique_id = generate_tcl_unique_id(
+        app_label, table_name, instance_id, field_names, log.changes)
+    property_unique_ids_dict = generate_tcl_property_unique_ids_dict(
+        loggable_properties, log.changes)
+
+    tcl_exists = TableChangesLog.objects.filter(unique_id=unique_id).exists()
+
+    if not tcl_exists:
+        TableChangesLog.objects.create(
+            app_label=app_label, table_name=table_name,
+            instance_id=instance_id, field_name=field_names,
+            log=log, unique_id=unique_id,
+            property_unique_ids=property_unique_ids_dict
+        )
+
+
+def create_log_object(loggable_fields, instance, old_instance=None):
+    """
+    Create TableChangesLog log attribute.
+
+    Args:
+        loggable_fields: <list> A list of loggable fields
+        new_instance: <Model instance> A newly saved Django model instance
+        old_instance: <Model instance|optional> Old version of the instance
+        argument
+    """
+
+    # initialize variables
+    changes = {}
+    log = None
+
+    # for each loggable field, get its value and save to the
+    # respective table
+    for field_name in loggable_fields:
+        old_value = getattr(old_instance, field_name, None)
+        new_value = getattr(instance, field_name, None)
+        change = Change(old_value=old_value, new_value=new_value)
+        changes[field_name] = change
+
+    # if changes exist, create the log object
+    if changes:
+        created = old_instance is None
+        log = Logged(changes=changes, created=created)
+
+    return log
+
+
+def create_initial_change_log_record(instance):
+    """
+    Creates a TableChangesLog record for a newly created instance.
+    """
+
+    app_label = get_app_label(instance)
+    table_name = get_model_name(instance)
+    config = get_table_change_log_config(instance)
+    loggable_properties = get_loggable_properties(instance, config)
+    field_names = ','.join(loggable_properties)
+    log = create_log_object(loggable_properties, instance)
+    create_table_change_log_record(
+        app_label,
+        table_name,
+        instance.id,
+        field_names,
+        log,
+        loggable_properties
     )
-    return table_change_log
 
 
 def get_latest_table_change_log(table_name, instance_id):
@@ -112,6 +206,64 @@ def get_latest_table_change_log(table_name, instance_id):
     return TableChangesLog.objects.filter(
         table_name=table_name, instance_id=instance_id
     ).order_by('created_at').last()
+
+
+def get_notifiable_table_change_fields(tcl):
+    """
+    Returns notifiable property names and fields for TableChangesLog.
+
+    Args:
+        tcl: <TableChangesLog> A TableChangesLog object
+
+    Returns:
+        notifiable_fields: <set> A set of notifiable field names
+    """
+
+    field_names = tcl.field_name.split(',')
+    notifiable_field_names = set()
+
+    # base case: if tcl is a newly created one, there is no change in any
+    # field, they are just initialized.
+    if tcl.log.created:
+        return notifiable_field_names
+
+    previous_tcl = tcl.previous_log
+
+    # Check if logged properties are changed
+    # If so, add them to notifiable field names set
+    for field in field_names:
+        current_unique_id = tcl.property_unique_ids.get(field)
+
+        if not current_unique_id:
+            notifiable_field_names.add(field)
+            continue
+        # no field to check against, no change detected
+        if not previous_tcl:
+            continue
+
+        previous_unique_id = previous_tcl.property_unique_ids.get(field)
+        property_changed = current_unique_id != previous_unique_id
+
+        if property_changed:
+            notifiable_field_names.add(field)
+    return notifiable_field_names
+
+
+def get_loggable_properties(instance, config):
+    """
+    Gets related instance config, inspects loggable fields,
+    returns loggable properties among those fields.
+    """
+
+    fields = config.get('fields')
+    model = instance._meta.model
+    property_names = [
+        name for name in dir(model)
+        if isinstance(getattr(model, name), property)
+    ]
+    loggable_properties = list(
+        filter(lambda prop: prop in fields, property_names))
+    return loggable_properties
 
 
 def log_table_change(func):
@@ -128,29 +280,35 @@ def log_table_change(func):
             # get the instance from the pre_save method
             # check if the instance is loggable
             loggable = is_loggable(instance)
+
             if loggable:
                 app_label = get_app_label(instance)
                 table_name = get_model_name(instance)
-                instance_id = instance.id
                 # get differing fields
                 differing_fields = get_differing_fields(obj, instance)
                 # get respective config
                 config = get_table_change_log_config(instance)
+                # get properties to log
+                loggable_properties = get_loggable_properties(
+                    instance, config)
+                # get fields to log
                 loggable_fields = get_loggable_fields(differing_fields,
                                                       config)
+                # merge properties and loggable fields
+                loggable_fields = loggable_fields + loggable_properties
 
-                # for each loggable field, get its value and save to the
-                # respective table
-                for field_name in loggable_fields:
-                    old_value = getattr(obj, field_name, None)
-                    new_value = getattr(instance, field_name, None)
-                    log = Logged(old_value=old_value, new_value=new_value)
+                # create log changes mapping
+                log = create_log_object(loggable_fields, instance, obj)
+
+                if log:
+                    field_names = ','.join(loggable_fields)
                     create_table_change_log_record(
                         app_label,
                         table_name,
-                        instance_id,
-                        field_name,
-                        log
+                        instance.id,
+                        field_names,
+                        log,
+                        loggable_properties
                     )
                 return result
         except Exception as e:

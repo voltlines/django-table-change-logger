@@ -21,6 +21,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        'Django>=1.11'
+        'Django>=1.11',
+        'factory-boy==2.11.1',
+        'pytest',
+        'mock'
     ]
 )
