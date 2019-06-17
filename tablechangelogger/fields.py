@@ -5,10 +5,10 @@ from tablechangelogger.datastructures import Logged
 
 
 def parse_log(value):
-    svalue = value.split('~')
-    old, new = svalue[0], svalue[1]
-    old_obj, new_obj = deserialize_field(old), deserialize_field(new)
-    return Logged(old_value=old_obj, new_value=new_obj)
+    changes, created = value.split('~')
+    changes = deserialize_field(changes)
+    created = True if created == 'True' else False
+    return Logged(changes=changes, created=created)
 
 
 class LoggedField(models.CharField):
@@ -20,11 +20,9 @@ class LoggedField(models.CharField):
 
     def pre_save(self, model_instance, add):
         log = model_instance.log
-        new_field = log.new_value
-        old_field = log.old_value
-        snew = serialize_field(new_field)
-        sold = serialize_field(old_field)
-        value = '{}~{}'.format(sold, snew)
+        changes = log.changes
+        created = log.created
+        value = '{}~{}'.format(serialize_field(changes), created)
         return value
 
     def from_db_value(self, value, expression, connection, context):
@@ -35,6 +33,5 @@ class LoggedField(models.CharField):
     def get_prep_value(self, value):
         if not value or isinstance(value, str):
             return value
-        return '{}~{}'.format(serialize_field(value.old_value),
-                              serialize_field(value.new_value))
-
+        return '{}~{}'.format(serialize_field(value.changes),
+                              value.created)

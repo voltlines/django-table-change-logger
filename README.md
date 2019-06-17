@@ -15,12 +15,14 @@ TABLE_CHANGE_LOG_CONFIG={
     'LOGGABLE_APPS': {
         'drivers': {
             'yourapp.models.Drivers': {
-                'fields': ['driver_id', 'driver_name']
+                'fields': ['driver_id', 'driver_name'],
+                'callbacks': ('yourapp.app.callbacks.your_method_name')
             }
         },
         'cars': {
             'yourapp.models.Car': {
-                'fields': ['license_plate', 'car_model']
+                'fields': ['license_plate', 'car_model'],
+                'callbacks': ('yourapp.app.callbacks.your_method_name')
             }
         }
     },
@@ -32,6 +34,9 @@ TABLE_CHANGE_LOG_CONFIG={
 The keys of ```TABLE_CHANGE_LOG_CONFIG``` indicate your app label, while the
 nested mappings contain **relative project path of your model** mapped to a
 dictionary containing **loggable fields of that respective model**.
+
+You can optionally specify a callback function path in your configuration.
+The best practice is to place your callback function in yourapp/callbacks.py
 
 ### How it works?
 
@@ -62,7 +67,7 @@ Supposing you have a model called ```Driver``` and fields called ```latest_speed
     
     log = TableChangesLog.objects.filter(
         instance_id=driver.id, table_name=model_name)
-    print(log.field_name, log.field_value)  # prints 'driver_name, John Doe'
+    print(log.field_name, log.log.changes.get_field_new_value(log.field_name))  # prints 'driver_name, John Doe'
 ```
 
 ### The model structure
@@ -76,10 +81,10 @@ follows:
  'app_label': 'drivers',
  'created_at': datetime.datetime(2019, 2, 22, 9, 1, 14, 619568, tzinfo=<UTC>),
  'field_name': 'latest_speed',
- 'field_value': '200',
  'id': 1,
  'instance_id': 1,
- 'table_name': 'Driver'
+ 'table_name': 'Driver',
+ 'log': Log(changes=Change(new_value=100, old_value=75), created=<True|False>)
  }
 
 ```
