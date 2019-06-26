@@ -58,6 +58,13 @@ def tcl_post_save_actions(instance, created, **kwargs):
             return
 
         notifiable_fields = get_notifiable_table_change_fields(instance)
+        new_values = instance.log.get_new_values()
+
+        # remove fields which became null
+        for field in notifiable_fields:
+            change_value = new_values[field]
+            if change_value is None:
+                notifiable_fields.remove(field)
 
         if notifiable_fields:
             func(instance, notifiable_fields)

@@ -27,3 +27,8 @@ class Logged(object):
     def get_field_old_value(self, field_name):
         field_log = self.changes.get(field_name, {})
         return field_log.old_value if field_log else None
+
+    def get_new_values(self):
+        new_values = {key: change_obj.new_value
+                      for key, change_obj in self.changes.items()}
+        return new_values

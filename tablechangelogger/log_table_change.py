@@ -91,12 +91,12 @@ def get_table_change_log_config(instance):
 
 
 def generate_tcl_unique_id(app_label, table_name, instance_id, field_names,
-                           changes):
+                           new_values):
     """
     Generates a unique id from specific log attributes.
     """
 
-    changes = serialize_field(changes)
+    changes = serialize_field(new_values)
     key = '{}{}{}{}{}'.format(app_label, table_name, instance_id, field_names,
                               changes)
 
@@ -128,7 +128,8 @@ def create_table_change_log_record(app_label, table_name, instance_id,
     from tablechangelogger.models import TableChangesLog
 
     unique_id = generate_tcl_unique_id(
-        app_label, table_name, instance_id, field_names, log.changes)
+        app_label, table_name, instance_id, field_names,
+        log.get_new_values())
     property_unique_ids_dict = generate_tcl_property_unique_ids_dict(
         loggable_properties, log.changes)
 

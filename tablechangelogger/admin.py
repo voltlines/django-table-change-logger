@@ -1,9 +1,39 @@
 from django.apps import apps
 from django.contrib import admin
+from django.utils.html import format_html
 
 from tablechangelogger.models import TableChangesLog
 from tablechangelogger.log_table_change import (
     get_notifiable_table_change_fields)
+
+
+class RelatedObjectFilter(admin.SimpleListFilter):
+    title = 'related_obj'
+    parameter_name = 'related_obj'
+
+    def lookups(self, request, model_admin):
+        labels = model_admin.model.objects.order_by(
+            'app_label', 'table_name').values_list('app_label',
+                                                   'table_name').distinct()
+        instance_ids = labels.values_list('instance_id', flat=True)
+
+        models = []
+        for label in labels:
+            Model = apps.get_model(label[0], label[1])
+            models.append(Model)
+
+        objs = []
+        for model in models:
+            instances = model.objects.filter(id__in=instance_ids)
+            instance_choices = [(instance.id, instance.__str__())
+                                for instance in instances]
+            objs.extend(instance_choices)
+        return objs
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(instance_id=value)
 
 
 class TableChangesLogAdmin(admin.ModelAdmin):
@@ -12,18 +42,25 @@ class TableChangesLogAdmin(admin.ModelAdmin):
                     'get_previous_log_link', 'get_old', 'get_new',
                     'get_notifiable_fields', 'is_notified', 'details',
                     'created_at')
-    list_filter = ('app_label', 'table_name', 'is_notified')
+    list_filter = ('app_label', 'table_name', 'is_notified',
+                   RelatedObjectFilter)
     search_fields = ('instance_id', 'table_name', 'field_name', 'app_label')
     ordering = ('-created_at', )
 
     def get_previous_log_link(self, obj):
         if obj.previous_log:
-            return (
+            return format_html(
                 '<a href="/admin/tablechangelogger/tablechangeslog/'
-                '%s/change/">Log</a>' % (obj.previous_log.id))
+                '{0}/change/">Log</a>', obj.previous_log.id)
 
     def get_notifiable_fields(self, obj):
         notifiable_fields = get_notifiable_table_change_fields(obj)
+        if not notifiable_fields:
+            return format_html(
+                '<div style="width: 100%; height: 100%; background-color: '
+                '{0}; border-radius: 5px">'
+                '<p style="color: {1}">Won"t Notify</p></div>', 'red', 'white'
+            )
         return ', '.join(notifiable_fields)
 
     def get_old(self, obj):
@@ -52,10 +89,7 @@ class TableChangesLogAdmin(admin.ModelAdmin):
         return changes_dict
 
     def get_new(self, obj):
-        changes = obj.log.changes
-        changes_dict = {change_key: change_obj.new_value
-                        for change_key, change_obj in changes.items()}
-        return changes_dict
+        return obj.log.get_new_values()
 
     def get_related_obj(self, obj):
         Model = apps.get_model(obj.app_label, obj.table_name)
@@ -74,6 +108,7 @@ class TableChangesLogAdmin(admin.ModelAdmin):
     get_old.short_description = 'Old Values'
     get_new.short_description = 'New Values'
     get_notifiable_fields.short_description = 'Notifiable Fields'
+    get_notifiable_fields.allow_tags = True
     get_related_obj.allow_tags = True
     get_related_obj.short_description = 'Related Object'
 
