@@ -58,6 +58,8 @@ def tcl_post_save_actions(instance, created, **kwargs):
             return
 
         notifiable_fields = get_notifiable_table_change_fields(instance)
-
-        if notifiable_fields:
+        
+        # call  notification callback if there are notifiable_fields and
+        # there is a previous log
+        if notifiable_fields and instance.previous_log:
             func(instance, notifiable_fields)

@@ -1,6 +1,8 @@
+import json
 import logging
 from hashlib import md5
 
+from django.db.models import Q
 from tablechangelogger.config import LOGGABLE_APPS
 from tablechangelogger.utils import (
     get_app_label, get_model, get_model_name, serialize_field)
@@ -91,12 +93,12 @@ def get_table_change_log_config(instance):
 
 
 def generate_tcl_unique_id(app_label, table_name, instance_id, field_names,
-                           changes):
+                           new_values):
     """
     Generates a unique id from specific log attributes.
     """
-
-    changes = serialize_field(changes)
+    
+    changes = json.dumps(new_values)
     key = '{}{}{}{}{}'.format(app_label, table_name, instance_id, field_names,
                               changes)
 
@@ -128,7 +130,8 @@ def create_table_change_log_record(app_label, table_name, instance_id,
     from tablechangelogger.models import TableChangesLog
 
     unique_id = generate_tcl_unique_id(
-        app_label, table_name, instance_id, field_names, log.changes)
+        app_label, table_name, instance_id, field_names,
+        log.get_new_values())
     property_unique_ids_dict = generate_tcl_property_unique_ids_dict(
         loggable_properties, log.changes)
 
@@ -195,7 +198,7 @@ def create_initial_change_log_record(instance):
     )
 
 
-def get_latest_table_change_log(table_name, instance_id):
+def get_latest_table_change_log(table_name, instance_id, field_name=None):
     """
         Returns most recent TableChangeLog record from specified table and
         instance
@@ -203,9 +206,12 @@ def get_latest_table_change_log(table_name, instance_id):
 
     from tablechangelogger.models import TableChangesLog
 
-    return TableChangesLog.objects.filter(
-        table_name=table_name, instance_id=instance_id
-    ).order_by('created_at').last()
+    query = Q(table_name=table_name) & Q(instance_id=instance_id)
+
+    if field_name:
+        query &= Q(field_name__icontains=field_name)
+
+    return TableChangesLog.objects.filter(query).order_by('created_at').last()
 
 
 def get_notifiable_table_change_fields(tcl):
@@ -246,6 +252,19 @@ def get_notifiable_table_change_fields(tcl):
 
         if property_changed:
             notifiable_field_names.add(field)
+
+    new_values = tcl.log.get_new_values()
+
+    # remove fields which became null
+    fields_to_remove = []
+    for field in notifiable_field_names:
+        change_value = new_values[field]
+        if change_value is None:
+            fields_to_remove.append(field)
+
+    for field in fields_to_remove:
+        notifiable_field_names.remove(field)
+
     return notifiable_field_names
 
 
