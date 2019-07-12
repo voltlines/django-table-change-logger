@@ -97,7 +97,9 @@ def generate_tcl_unique_id(app_label, table_name, instance_id, field_names,
     """
     Generates a unique id from specific log attributes.
     """
-    
+
+    new_values = {key: serialize_field(value) for key, value in
+                  new_values.items()}
     changes = json.dumps(new_values)
     key = '{}{}{}{}{}'.format(app_label, table_name, instance_id, field_names,
                               changes)

@@ -91,7 +91,10 @@ class TableChangesLogAdmin(admin.ModelAdmin):
         return changes_dict
 
     def get_new(self, obj):
-        return json.dumps(obj.log.get_new_values())
+        try:
+            return json.dumps(obj.log.get_new_values())
+        except Exception:
+            return ''
 
     def get_related_obj(self, obj):
         Model = apps.get_model(obj.app_label, obj.table_name)
