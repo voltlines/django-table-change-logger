@@ -6,11 +6,10 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setuptools.setup(
     name="tablechangelogger",
-    version="0.0.1",
+    version="0.0.2",
     author="Volt Lines",
     author_email="tech@voltlines.com",
-    description="""A python package which logs each change made to a django
-                model instance""",
+    description="""A python package which logs each change made to a Django model instance""",
     url="https://github.com/voltlines/django-table-change-logger",
     packages=setuptools.find_packages(),
     license='MIT',

@@ -9,43 +9,13 @@ from tablechangelogger.log_table_change import (
     get_notifiable_table_change_fields)
 
 
-class RelatedObjectFilter(admin.SimpleListFilter):
-    title = 'related_obj'
-    parameter_name = 'related_obj'
-
-    def lookups(self, request, model_admin):
-        labels = model_admin.model.objects.order_by(
-            'app_label', 'table_name').values_list('app_label',
-                                                   'table_name').distinct()
-        instance_ids = labels.values_list('instance_id', flat=True)
-
-        models = []
-        for label in labels:
-            Model = apps.get_model(label[0], label[1])
-            models.append(Model)
-
-        objs = []
-        for model in models:
-            instances = model.objects.filter(id__in=instance_ids)
-            instance_choices = [(instance.id, instance.__str__())
-                                for instance in instances]
-            objs.extend(instance_choices)
-        return objs
-
-    def queryset(self, request, queryset):
-        value = self.value()
-        if value:
-            return queryset.filter(instance_id=value)
-
-
 class TableChangesLogAdmin(admin.ModelAdmin):
     exclude = ('log', )
     list_display = ('id', 'get_related_obj', 'table_name', 'field_name',
                     'get_previous_log_link', 'get_old', 'get_new',
                     'get_notifiable_fields', 'is_notified', 'details',
                     'created_at')
-    list_filter = ('app_label', 'table_name', 'is_notified',
-                   RelatedObjectFilter)
+    list_filter = ('app_label', 'table_name', 'is_notified', )
     search_fields = ('instance_id', 'table_name', 'field_name', 'app_label')
     ordering = ('-created_at', )
 
