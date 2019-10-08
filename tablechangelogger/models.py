@@ -23,7 +23,8 @@ class TableChangesLog(models.Model):
     field_name = models.CharField(max_length=255)
     log = LoggedField(max_length=10485000, null=True)
     created_at = models.DateTimeField(auto_now=True)
-    unique_id = models.CharField(max_length=300, blank=True, null=True)
+    unique_id = models.CharField(max_length=300, blank=True, null=True,
+                                 unique=True)
     property_unique_ids = JSONField(default=dict, null=True, blank=True)
     is_notified = models.BooleanField(default=False)
     details = JSONField(default=dict, null=True, blank=True)
@@ -58,7 +59,7 @@ def tcl_post_save_actions(instance, created, **kwargs):
             return
 
         notifiable_fields = get_notifiable_table_change_fields(instance)
-        
+
         # call  notification callback if there are notifiable_fields and
         # there is a previous log
         if notifiable_fields and instance.previous_log:

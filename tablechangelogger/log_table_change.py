@@ -2,6 +2,7 @@ import json
 import logging
 from hashlib import md5
 
+from django.db import IntegrityError
 from django.db.models import Q
 from tablechangelogger.config import LOGGABLE_APPS
 from tablechangelogger.utils import (
@@ -140,12 +141,15 @@ def create_table_change_log_record(app_label, table_name, instance_id,
     tcl_exists = TableChangesLog.objects.filter(unique_id=unique_id).exists()
 
     if not tcl_exists:
-        TableChangesLog.objects.create(
-            app_label=app_label, table_name=table_name,
-            instance_id=instance_id, field_name=field_names,
-            log=log, unique_id=unique_id,
-            property_unique_ids=property_unique_ids_dict
-        )
+        try:
+            TableChangesLog.objects.create(
+                app_label=app_label, table_name=table_name,
+                instance_id=instance_id, field_name=field_names,
+                log=log, unique_id=unique_id,
+                property_unique_ids=property_unique_ids_dict
+            )
+        except IntegrityError as e:
+            logger.exception(e)
 
 
 def create_log_object(loggable_fields, instance, old_instance=None):
