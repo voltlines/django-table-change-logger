@@ -1,10 +1,10 @@
 from datetime import datetime
-import json
 import logging
 from hashlib import md5
 
 from django.db import IntegrityError
 from django.db.models import Q
+from django.db.models.base import Model
 from tablechangelogger.config import LOGGABLE_APPS
 from tablechangelogger.utils import (
     get_app_label, get_model, get_model_name, serialize_field,
@@ -95,15 +95,23 @@ def get_table_change_log_config(instance):
     return table_config
 
 
+def generate_changes_string(new_values):
+    changes = ''
+    for key, value in new_values.items():
+        if isinstance(value, Model):
+            changes += '{}:{}'.format(value._meta, hash(value))
+        else:
+            changes += '{}:{}'.format(key, value)
+    return changes
+
+
 def generate_tcl_unique_id(app_label, table_name, instance_id, field_names,
                            new_values):
     """
     Generates a unique id from specific log attributes.
     """
 
-    new_values = {key: serialize_field(value) for key, value in
-                  new_values.items()}
-    changes = json.dumps(new_values)
+    changes = generate_changes_string(new_values)
     key = '{}{}{}{}{}'.format(app_label, table_name, instance_id, field_names,
                               changes)
 
