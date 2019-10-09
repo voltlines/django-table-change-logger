@@ -6,7 +6,7 @@ from django.utils.html import format_html
 
 from tablechangelogger.models import TableChangesLog
 from tablechangelogger.log_table_change import (
-    get_notifiable_table_change_fields)
+    get_notifiable_table_change_fields, get_old_changes)
 
 
 class TableChangesLogAdmin(admin.ModelAdmin):
@@ -36,28 +36,7 @@ class TableChangesLogAdmin(admin.ModelAdmin):
         return ', '.join(notifiable_fields)
 
     def get_old(self, obj):
-        property_unique_ids = obj.property_unique_ids
-        properties = (list(property_unique_ids.keys())
-                      if property_unique_ids else [])
-        fields = obj.field_name.split(',')
-        loggable_fields = [field for field in set(fields)
-                           if field not in properties]
-        prev_log = obj.previous_log
-
-        changes_dict = {}
-
-        if prev_log:
-            prev_changes = prev_log.log.changes
-            existing_property_changes = [prop for prop in properties
-                                         if prop in prev_changes.keys()]
-            changes_dict = {key: prev_changes.get(key).new_value
-                            for key in existing_property_changes}
-
-        current_changes = obj.log.changes
-
-        for field in loggable_fields:
-            changes_dict[field] = current_changes.get(field).old_value
-
+        changes_dict = get_old_changes(obj)
         return changes_dict
 
     def get_new(self, obj):

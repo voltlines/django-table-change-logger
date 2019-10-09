@@ -30,3 +30,13 @@ def deserialize_field(field):
     byte_field = bytes(json.loads(field))
     original_field = pickle.loads(byte_field)
     return original_field
+
+
+def is_same_dictionary(lhs, rhs):
+    """Checks if two given dictionaries are equal"""
+
+    is_same = False
+    if any([not lhs and not rhs, lhs and rhs]):
+        same_keys = [key for key in lhs if key in rhs and lhs[key] == rhs[key]]
+        is_same = len(same_keys) == len(lhs.keys())
+    return is_same

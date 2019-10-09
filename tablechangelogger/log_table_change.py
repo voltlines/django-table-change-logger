@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import logging
 from hashlib import md5
@@ -6,7 +7,8 @@ from django.db import IntegrityError
 from django.db.models import Q
 from tablechangelogger.config import LOGGABLE_APPS
 from tablechangelogger.utils import (
-    get_app_label, get_model, get_model_name, serialize_field)
+    get_app_label, get_model, get_model_name, serialize_field,
+    is_same_dictionary)
 from tablechangelogger.datastructures import Logged, Change
 
 logger = logging.getLogger(__name__)
@@ -138,9 +140,21 @@ def create_table_change_log_record(app_label, table_name, instance_id,
     property_unique_ids_dict = generate_tcl_property_unique_ids_dict(
         loggable_properties, log.changes)
 
+    is_unique_log = True
     tcl_exists = TableChangesLog.objects.filter(unique_id=unique_id).exists()
+    old_changes = get_old_changes(
+        property_unique_ids=property_unique_ids_dict,
+        field_names=field_names,
+        table_name=table_name,
+        app_label=app_label,
+        instance_id=instance_id,
+        log=log)
+    new_changes = log.get_new_values()
 
-    if not tcl_exists:
+    is_same_log = is_same_dictionary(old_changes, new_changes)
+    is_unique_log = not tcl_exists and not is_same_log
+
+    if is_unique_log:
         try:
             TableChangesLog.objects.create(
                 app_label=app_label, table_name=table_name,
@@ -289,6 +303,60 @@ def get_loggable_properties(instance, config):
     loggable_properties = list(
         filter(lambda prop: prop in fields, property_names))
     return loggable_properties
+
+
+def get_old_changes(**kwargs):
+    """
+    Gets old instance changes of a TableChangesLog instance as a dictionary.
+
+    Kwargs:
+        property_unique_ids (dict)
+        field_names (str)
+        table_name (str)
+        app_label(str)
+        instance_id (int)
+        log (Logged)
+    """
+
+    property_unique_ids = kwargs.get('property_unique_ids')
+    field_names = kwargs.get('field_names')
+    table_name = kwargs.get('table_name')
+    app_label = kwargs.get('app_label')
+    instance_id = kwargs.get('instance_id')
+    log = kwargs.get('log')
+
+    properties = (list(property_unique_ids.keys())
+                  if property_unique_ids else [])
+    fields = field_names.split(',')
+    loggable_fields = [field for field in set(fields)
+                       if field not in properties]
+    prev_log = get_previous_log(instance_id, table_name, app_label)
+
+    changes_dict = {}
+
+    if prev_log:
+        prev_changes = prev_log.log.changes
+        existing_property_changes = [prop for prop in properties
+                                     if prop in prev_changes.keys()]
+        changes_dict = {key: prev_changes.get(key).new_value
+                        for key in existing_property_changes}
+
+    current_changes = log.changes
+
+    for field in loggable_fields:
+        changes_dict[field] = current_changes.get(field).old_value
+
+    return changes_dict
+
+
+def get_previous_log(instance_id, table_name, app_label):
+    from tablechangelogger.models import TableChangesLog
+
+    return TableChangesLog.objects.order_by('created_at').filter(
+        instance_id=instance_id,
+        table_name=table_name,
+        app_label=app_label,
+        created_at__lte=datetime.now()).last()
 
 
 def log_table_change(func):

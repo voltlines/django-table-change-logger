@@ -6,7 +6,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setuptools.setup(
     name="tablechangelogger",
-    version="0.0.3",
+    version="0.0.4",
     author="Volt Lines",
     author_email="tech@voltlines.com",
     description="""A python package which logs each change made to a Django model instance""",
