@@ -36,7 +36,15 @@ class TableChangesLogAdmin(admin.ModelAdmin):
         return ', '.join(notifiable_fields)
 
     def get_old(self, obj):
-        changes_dict = get_old_changes(obj)
+        kwargs = {
+            'property_unique_ids': obj.property_unique_ids,
+            'field_names': obj.field_name,
+            'table_name': obj.table_name,
+            'app_label': obj.app_label,
+            'instance_id': obj.instance_id,
+            'log': obj.log
+        }
+        changes_dict = get_old_changes(**kwargs)
         return changes_dict
 
     def get_new(self, obj):
