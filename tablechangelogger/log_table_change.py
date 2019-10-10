@@ -324,6 +324,7 @@ def get_old_changes(**kwargs):
         app_label(str)
         instance_id (int)
         log (Logged)
+        pk (int, optional)
     """
 
     property_unique_ids = kwargs.get('property_unique_ids')
@@ -332,13 +333,14 @@ def get_old_changes(**kwargs):
     app_label = kwargs.get('app_label')
     instance_id = kwargs.get('instance_id')
     log = kwargs.get('log')
+    pk = kwargs.get('pk')
 
     properties = (list(property_unique_ids.keys())
                   if property_unique_ids else [])
     fields = field_names.split(',')
     loggable_fields = [field for field in set(fields)
                        if field not in properties]
-    prev_log = get_previous_log(instance_id, table_name, app_label)
+    prev_log = get_previous_log(instance_id, table_name, app_label, pk=pk)
 
     changes_dict = {}
 
@@ -357,14 +359,17 @@ def get_old_changes(**kwargs):
     return changes_dict
 
 
-def get_previous_log(instance_id, table_name, app_label):
+def get_previous_log(instance_id, table_name, app_label, pk=None):
     from tablechangelogger.models import TableChangesLog
 
-    return TableChangesLog.objects.order_by('created_at').filter(
+    queryset = TableChangesLog.objects.order_by('created_at').filter(
         instance_id=instance_id,
         table_name=table_name,
         app_label=app_label,
-        created_at__lte=datetime.now()).last()
+        created_at__lte=datetime.now())
+    if pk:
+        queryset = queryset.exclude(id=pk)
+    return queryset.last()
 
 
 def log_table_change(func):
