@@ -49,7 +49,7 @@ class TableChangesLog(models.Model):
 def tcl_post_save_actions(instance, created, **kwargs):
     if not instance.log.created:
         Model = apps.get_model(instance.app_label, instance.table_name)
-        logged_instance = Model.objects.get(id=instance.instance_id)
+        logged_instance = Model.objects.get(pk=instance.instance_id)
         config = get_table_change_log_config(logged_instance)
 
         function_path = config.get('callback', '')

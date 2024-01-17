@@ -27,7 +27,7 @@ def mock_tcl_data(app_label, table_name, _id, route_id, pickup_point):
     data = {
         'app_label': app_label,
         'table_name': table_name,
-        'instance_id': mock_instance.id,
+        'instance_id': mock_instance.pk,
         'field_names': mock_instance.properties,
         'log': Logged(changes=changes, created=True),
         'loggable_properties': mock_instance.properties,
