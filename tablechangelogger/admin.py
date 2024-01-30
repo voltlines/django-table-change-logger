@@ -55,7 +55,7 @@ class TableChangesLogAdmin(admin.ModelAdmin):
 
     def get_related_obj(self, obj):
         Model = apps.get_model(obj.app_label, obj.table_name)
-        instance = Model.objects.get(id=obj.instance_id)
+        instance = Model.objects.get(pk=obj.instance_id)
         return (
             '<a href="/admin/%s/%s/%s/change/">%s</a>' % (
                 obj.app_label, obj.table_name.lower(), obj.instance_id,

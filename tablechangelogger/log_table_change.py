@@ -29,7 +29,7 @@ def is_loggable(instance):
             is_loggable = table_name in model_path
             # if instance is newly created, we cannot log it since
             # there is no change
-            is_loggable &= instance.id is not None
+            is_loggable &= instance.pk is not None
             if is_loggable:
                 break
 
@@ -112,8 +112,8 @@ def generate_tcl_unique_id(app_label, table_name, instance_id, field_names,
     """
 
     changes = generate_changes_string(new_values)
-    key = '{}{}{}{}{}'.format(app_label, table_name, instance_id, field_names,
-                              changes)
+    key = '{}{}{}{}{}{}'.format(app_label, table_name, instance_id, field_names,
+                              changes, datetime.now().timestamp())
 
     return md5(str(key).encode()).hexdigest()
 
@@ -219,7 +219,7 @@ def create_initial_change_log_record(instance):
     create_table_change_log_record(
         app_label,
         table_name,
-        instance.id,
+        instance.pk,
         field_names,
         log,
         loggable_properties
@@ -377,7 +377,7 @@ def log_table_change(func):
         model = get_model(instance)
 
         try:
-            obj = model.objects.get(id=instance.id)
+            obj = model.objects.get(pk=instance.pk)
         except Exception:
             obj = None
 
@@ -411,7 +411,7 @@ def log_table_change(func):
                     create_table_change_log_record(
                         app_label,
                         table_name,
-                        instance.id,
+                        instance.pk,
                         field_names,
                         log,
                         loggable_properties
